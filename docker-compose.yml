@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: prompt
+      MYSQL_USER: promptuser
+      MYSQL_PASSWORD: Toananh@2003
+      MYSQL_ROOT_PASSWORD: Toananh@2003
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    networks:
+      - prompt_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - prompt_network
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=your-production-secret-key-change-this
+      - DATABASE_URL=mysql://promptuser:promptpass123@db:3306/prompt_library
+      - FRONTEND_URL=http://localhost:8000
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./backend/media:/app/backend/media
+      - static_volume:/app/static
+    depends_on:
+      - db
+      - redis
+    networks:
+      - prompt_network
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - static_volume:/app/static
+      - ./backend/media:/app/media
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+    networks:
+      - prompt_network
+
+volumes:
+  mysql_data:
+  static_volume:
+
+networks:
+  prompt_network:
+    driver: bridge
