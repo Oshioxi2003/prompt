@@ -1,54 +1,36 @@
 #!/bin/bash
 
-# update.sh - Script cập nhật ứng dụng
+# update.sh - Update promt.oshioxi.me
 
-echo "🔄 Cập nhật ứng dụng Prompt Library..."
+echo "🔄 Updating promt.oshioxi.me..."
 
-# Colors
 GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Backup current state
-print_status "Tạo backup trước khi cập nhật..."
-docker-compose exec db mysqldump -u root -p prompt_library > backup_before_update_$(date +%Y%m%d_%H%M%S).sql
-
 # Pull latest code
-print_status "Pull code mới nhất..."
+print_status "Pulling latest code..."
 git pull origin main
 
 # Stop services
-print_status "Dừng services..."
-docker-compose down
+print_status "Stopping services..."
+docker-compose -f docker-compose.production.yml down
 
 # Rebuild images
-print_status "Rebuild images..."
-docker-compose build --no-cache
+print_status "Rebuilding images..."
+docker-compose -f docker-compose.production.yml build --no-cache
 
 # Start services
-print_status "Khởi động services..."
-docker-compose up -d
+print_status "Starting services..."
+docker-compose -f docker-compose.production.yml up -d
 
-# Run migrations
-print_status "Chạy database migrations..."
-sleep 10
-docker-compose exec web python backend/manage.py migrate
+# Wait and check
+sleep 15
+print_status "Checking status..."
+docker-compose -f docker-compose.production.yml ps
 
-# Collect static files
-print_status "Collect static files..."
-docker-compose exec web python backend/manage.py collectstatic --noinput
-
-# Restart services to ensure everything is fresh
-print_status "Restart services..."
-docker-compose restart
-
-print_status "✅ Cập nhật hoàn tất!"
-docker-compose ps
+print_status "✅ Update completed!"
+print_status "Website: https://promt.oshioxi.me"

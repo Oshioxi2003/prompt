@@ -1,6 +1,6 @@
 # Multi-stage build để optimize image size
 # Stage 1: Build frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:18-alpine3.18 AS frontend-builder
 
 WORKDIR /app/frontend
 COPY frontend/package*.json ./

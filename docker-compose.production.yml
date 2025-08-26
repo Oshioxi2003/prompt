@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/media:/app/backend/media
+      - static_volume:/app/static
+      - ./logs:/app/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=prompt_library.settings
+    networks:
+      - prompt_network
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.production.conf:/etc/nginx/nginx.conf
+      - static_volume:/app/static
+      - ./backend/media:/app/media
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - web
+    networks:
+      - prompt_network
+
+volumes:
+  static_volume:
+
+networks:
+  prompt_network:
+    driver: bridge
