@@ -21,12 +21,18 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'CHhOK8EMBYbHjJJBqI2mNmU-0YiS2kfIZkFANF-1KitRPX164gohq3Ji0IKN7B5Ck5Q')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+# Domain thật (qua Cloudflare)
+APP_HOST = os.getenv('PUBLIC_HOST', 'app.oshioxi.me')
+WEB_HOST = os.getenv('WEB_HOST', 'web.oshioxi.me')
+
+ALLOWED_HOSTS = [
+    APP_HOST, 'localhost', '127.0.0.1'
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -75,20 +81,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'prompt_library.wsgi.application'
 
 # Database
+DB_NAME = os.getenv('DB_NAME') or os.getenv('MYSQL_DATABASE', 'prompt_library_db')
+DB_USER = os.getenv('DB_USER') or os.getenv('MYSQL_USER', 'root')
+DB_PASSWORD = os.getenv('DB_PASSWORD') or os.getenv('MYSQL_PASSWORD', '')
+DB_HOST = os.getenv('DB_HOST') or os.getenv('DB_HOST', 'localhost')
+DB_PORT = os.getenv('DB_PORT') or os.getenv('DB_PORT', '3306')
+
 DATABASES = {
     'default': {
         'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.mysql'),
-        'NAME': os.getenv('DB_NAME', 'prompt_library_db'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '3306'),
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': os.getenv('DB_HOST', DB_HOST),
+        'PORT': os.getenv('DB_PORT', DB_PORT),
         'OPTIONS': {
             'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES', innodb_strict_mode=1",
         },
+        'CONN_MAX_AGE': 60,  # giữ kết nối, giảm overhead
     }
 }
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -117,10 +131,14 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# STATICFILES_DIRS chỉ dùng ở dev nếu có thư mục 'static'
+if (BASE_DIR / 'static').exists():
+    STATICFILES_DIRS = [BASE_DIR / 'static']
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 # Media files
 MEDIA_URL = '/media/'
@@ -147,41 +165,41 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings
+from corsheaders.defaults import default_headers
+
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    f"https://{WEB_HOST}",      # frontend prod
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "http://localhost:5173", "http://127.0.0.1:5173",
 ]
 
+
+# Dev dễ thở thì: CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
 
-# Additional CORS settings for development
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Allow all origins in DEBUG mode
-CORS_ALLOWED_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
+CORS_ALLOWED_HEADERS = list(default_headers) + [
     'x-csrftoken',
-    'x-requested-with',
 ]
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000", 
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    f"https://{APP_HOST}",
+    f"https://{WEB_HOST}",
+    # dev:
+    "http://localhost:3000", "http://127.0.0.1:3000",
+    "http://localhost:5173", "http://127.0.0.1:5173",
 ]
 
-# For development, you might want to disable CSRF for specific views
+
+# Cookie bảo mật khi chạy HTTPS sau Cloudflare
+SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read CSRF token
-CSRF_USE_SESSIONS = False
+
+# Django nhận biết HTTPS khi ở sau proxy (Cloudflare set X-Forwarded-Proto)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
