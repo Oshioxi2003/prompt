@@ -1,41 +1,49 @@
-version: '3.8'
-
+version: "3.9"
 services:
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env.production
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - media:/app/media  # lưu upload
+    restart: always
+
   web:
     build:
       context: .
-      dockerfile: Dockerfile.production
-    restart: unless-stopped
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE}
     ports:
-      - "8000:8000"
-    volumes:
-      - ./backend/media:/app/backend/media
-      - static_volume:/app/static
-      - ./logs:/app/logs
-    environment:
-      - DJANGO_SETTINGS_MODULE=prompt_library.settings
-    networks:
-      - prompt_network
-
-  nginx:
-    image: nginx:alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.production.conf:/etc/nginx/nginx.conf
-      - static_volume:/app/static
-      - ./backend/media:/app/media
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - web
-    networks:
-      - prompt_network
+      - "127.0.0.1:8080:8080"
+    restart: always
 
 volumes:
-  static_volume:
-
-networks:
-  prompt_network:
-    driver: bridge
+  dbdata:
+  media:
