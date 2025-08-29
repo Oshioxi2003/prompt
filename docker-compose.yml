@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: prompt_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-prompt_library}
+      MYSQL_USER: ${DB_USER:-promptuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-promptpass123}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    networks:
+      - prompt_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: prompt_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - prompt_network
+
+  # Django Backend
+  backend:
+    build: ./backend
+    container_name: prompt_backend
+    restart: unless-stopped
+    environment:
+      - DJANGO_SETTINGS_MODULE=prompt_library.production_settings
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-prompt_library}
+      - DB_USER=${DB_USER:-promptuser}
+      - DB_PASSWORD=${DB_PASSWORD:-promptpass123}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=False
+      - FRONTEND_URL=https://app.oshioxi.me
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USE_TLS=${EMAIL_USE_TLS}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+    volumes:
+      - backend_media:/app/media
+      - backend_logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - prompt_network
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120 prompt_library.wsgi:application"
+
+  # React Frontend
+  frontend:
+    build: ./frontend
+    container_name: prompt_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - prompt_network
+
+  # Nginx Reverse Proxy for Backend
+  nginx_backend:
+    image: nginx:alpine
+    container_name: prompt_nginx_backend
+    restart: unless-stopped
+    volumes:
+      - ./backend/nginx.conf:/etc/nginx/conf.d/default.conf
+      - backend_media:/app/media:ro
+      - backend_static:/app/staticfiles:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - prompt_network
+
+volumes:
+  mysql_data:
+  redis_data:
+  backend_media:
+  backend_logs:
+  backend_static:
+
+networks:
+  prompt_network:
+    driver: bridge

@@ -1,10 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 
 const Header: React.FC = () => {
-  const { theme } = useTheme();
   const { user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);

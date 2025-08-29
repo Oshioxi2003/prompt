@@ -1,19 +1,45 @@
-FROM python:3.12-slim AS base
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-WORKDIR /app
-RUN apt-get update && apt-get install -y \
-    build-essential default-libmysqlclient-dev \
-  && rm -rf /var/lib/apt/lists/*
-  
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/ ./
-# static dir
-RUN mkdir -p /app/staticfiles /app/media
+FROM python:3.12-slim
 
-# entrypoint chạy migrate + collectstatic rồi start gunicorn
-COPY backend/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-ENV DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=prompt_library.production_settings
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        default-libmysqlclient-dev \
+        build-essential \
+        pkg-config \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project
+COPY . .
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Create staticfiles directory
+RUN mkdir -p /app/staticfiles
+
+# Collect static files
+RUN python manage.py collectstatic --noinput
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
 EXPOSE 8000
-CMD ["/entrypoint.sh"]
+
+# Run gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "prompt_library.wsgi:application"]
