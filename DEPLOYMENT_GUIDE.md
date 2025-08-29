@@ -1,6 +1,6 @@
-# 🚀 Ubuntu Deployment Guide for Prompt Library
+# 🚀 Ubuntu Deployment Guide for Prompt App
 
-Hướng dẫn deploy ứng dụng Prompt Library lên Ubuntu server với domain `app.oshioxi.me` (frontend) và `adminapp.oshioxi.me` (backend).
+Hướng dẫn deploy ứng dụng Prompt App lên Ubuntu server với domain `app.oshioxi.me` (frontend) và `adminapp.oshioxi.me` (backend).
 
 ## 📋 Prerequisites
 
@@ -18,15 +18,21 @@ Hướng dẫn deploy ứng dụng Prompt Library lên Ubuntu server với domai
 ssh user@your-server-ip
 
 # Clone repository
-git clone https://github.com/your-repo/prompt-library.git
-cd prompt-library
+git clone https://github.com/your-repo/prompt-app.git
+cd prompt-app
 
 # Cấp quyền thực thi cho script
-chmod +x deploy-ubuntu.sh
-chmod +x setup-ssl-cloudflare.sh
+chmod +x *.sh
 ```
 
-### 2. Chạy Deployment Script
+### 2. Setup Directories (Optional)
+
+```bash
+# Tạo các thư mục cần thiết (nếu chưa có)
+./setup-directories.sh
+```
+
+### 3. Chạy Deployment Script
 
 ```bash
 # Chạy script deployment
@@ -34,17 +40,18 @@ chmod +x setup-ssl-cloudflare.sh
 ```
 
 Script này sẽ:
+- Tạo các thư mục cần thiết
 - Cài đặt Docker và Docker Compose
 - Cài đặt Nginx
 - Cấu hình firewall
 - Build và chạy containers
 - Tạo systemd service cho auto-start
 
-### 3. Cấu hình Environment Variables
+### 4. Cấu hình Environment Variables
 
 ```bash
 # Chỉnh sửa file .env
-nano /opt/prompt-library/.env
+nano /opt/apps/prompt/.env
 ```
 
 Cập nhật các giá trị sau:
@@ -54,7 +61,7 @@ Cập nhật các giá trị sau:
 - `*_API_KEY`: API keys cho các dịch vụ AI
 - `*_CLIENT_*`: OAuth credentials
 
-### 4. Setup SSL với Cloudflare
+### 5. Setup SSL với Cloudflare
 
 ```bash
 # Chạy script SSL setup
@@ -123,7 +130,7 @@ docker stats
 # Tạo backup
 ./backup.sh
 
-# Backup sẽ được lưu tại: /opt/backups/prompt-library/
+# Backup sẽ được lưu tại: /opt/backups/prompt/
 ```
 
 ### Updates
@@ -163,10 +170,10 @@ docker stats
 
 ### Log Locations
 
-- **Application logs**: `/opt/prompt-library/logs/`
+- **Application logs**: `/opt/apps/prompt/logs/`
 - **Nginx logs**: `/var/log/nginx/`
 - **Docker logs**: `docker-compose logs [service]`
-- **System logs**: `journalctl -u prompt-library.service`
+- **System logs**: `journalctl -u prompt-app.service`
 
 ## 🚀 Performance Optimization
 
@@ -245,7 +252,7 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           script: |
-            cd /opt/prompt-library
+            cd /opt/apps/prompt
             git pull origin main
             ./update.sh
 ```

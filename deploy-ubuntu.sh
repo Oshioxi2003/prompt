@@ -74,7 +74,7 @@ else
 fi
 
 # Create application directory
-APP_DIR="/opt/prompt-library"
+APP_DIR="/opt/apps/prompt"
 print_status "Creating application directory at $APP_DIR..."
 sudo mkdir -p $APP_DIR
 sudo chown $USER:$USER $APP_DIR
@@ -156,9 +156,9 @@ docker-compose ps
 
 # Create systemd service for auto-start
 print_status "Creating systemd service for auto-start..."
-sudo tee /etc/systemd/system/prompt-library.service << EOF
+sudo tee /etc/systemd/system/prompt-app.service << EOF
 [Unit]
-Description=Prompt Library Docker Compose
+Description=Prompt App Docker Compose
 Requires=docker.service
 After=docker.service
 
@@ -174,7 +174,7 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 EOF
 
-sudo systemctl enable prompt-library.service
+sudo systemctl enable prompt-app.service
 
 # Create backup script
 print_status "Creating backup script..."
@@ -182,7 +182,7 @@ tee backup.sh << EOF
 #!/bin/bash
 # Backup script for Prompt Library
 
-BACKUP_DIR="/opt/backups/prompt-library"
+BACKUP_DIR="/opt/backups/prompt"
 DATE=\$(date +%Y%m%d_%H%M%S)
 
 mkdir -p \$BACKUP_DIR
@@ -191,7 +191,7 @@ mkdir -p \$BACKUP_DIR
 docker-compose exec -T db mysqldump -u root -p\${MYSQL_ROOT_PASSWORD} \${DB_NAME} > \$BACKUP_DIR/db_\$DATE.sql
 
 # Backup media files
-tar -czf \$BACKUP_DIR/media_\$DATE.tar.gz -C /opt/prompt-library/media .
+tar -czf \$BACKUP_DIR/media_\$DATE.tar.gz -C /opt/apps/prompt/media .
 
 # Keep only last 7 days of backups
 find \$BACKUP_DIR -name "*.sql" -mtime +7 -delete
